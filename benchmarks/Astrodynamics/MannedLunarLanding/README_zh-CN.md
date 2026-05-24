@@ -55,4 +55,7 @@ unified benchmark：`task=unified task.benchmark=Astrodynamics/MannedLunarLandin
 python -m frontier_eval task=unified task.benchmark=Astrodynamics/MannedLunarLanding algorithm.iterations=0
 ```
 
+unified evaluator 会调用 Octave 兼容版验证器。如果机器缺少 Octave，benchmark 会报告
+`octave executable not found`；可用 `bash scripts/bootstrap/install_host_deps.sh --octave` 安装。
+
 兼容别名（通过配置路由到相同 unified benchmark）：`task=manned_lunar_landing`。

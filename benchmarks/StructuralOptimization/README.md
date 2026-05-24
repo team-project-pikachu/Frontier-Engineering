@@ -30,3 +30,11 @@ These benchmarks serve as:
 - Agent + FEM simulation interaction benchmarks
 - Automated algorithm design benchmarks
 - LLM + numerical simulation benchmarks
+
+## Data and Runtime
+
+The required reference data for these tasks is committed under each task's `references/` directory; no separate asset bundle is required. For unified runs, use the `frontier-v1-main` runtime environment, for example:
+
+```bash
+python -m frontier_eval task=unified task.benchmark=StructuralOptimization/ISCSO2015 task.runtime.env_name=frontier-v1-main algorithm.iterations=0
+```

@@ -20,7 +20,7 @@ Output:
 
 3) Frontier framework integration
 Command:
-`python -m frontier_eval task=unified task.benchmark=PowerSystems/EV2GymSmartCharging task.runtime.use_conda_run=false algorithm.iterations=0`
+`python -m frontier_eval task=unified task.benchmark=PowerSystems/EV2GymSmartCharging task.runtime.env_name=frontier-eval-driver algorithm.iterations=0`
 
 Observed result:
 - benchmark loaded successfully

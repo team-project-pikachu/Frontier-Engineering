@@ -30,3 +30,11 @@
 - Agent + FEM 仿真交互 benchmark
 - 自动算法设计 benchmark
 - LLM + 数值仿真 benchmark
+
+## 数据与运行环境
+
+这些任务所需的 reference data 已随各任务的 `references/` 目录提交到仓库，不需要额外 asset bundle。unified 运行时请使用 `frontier-v1-main` 环境，例如：
+
+```bash
+python -m frontier_eval task=unified task.benchmark=StructuralOptimization/ISCSO2015 task.runtime.env_name=frontier-v1-main algorithm.iterations=0
+```

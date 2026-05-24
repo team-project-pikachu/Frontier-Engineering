@@ -4,3 +4,4 @@ references/original/0.k
 references/original/toolpath.crs
 frontier_eval/constraints.txt
 frontier_eval/eval_command.txt
+verification/canonical.py

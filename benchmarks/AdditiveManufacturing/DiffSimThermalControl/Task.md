@@ -159,10 +159,9 @@ From repository root:
 python -m frontier_eval \
   task=unified \
   task.benchmark=AdditiveManufacturing/DiffSimThermalControl \
-  task.runtime.conda_env=<your_env> \
+  task.runtime.env_name=frontier-eval-driver \
   algorithm.iterations=0
 ```
 
-For the local environment prepared in this work, use `task.runtime.conda_env=Engi`.
-
+The v1 driver environment includes this task's lightweight dependencies.
 

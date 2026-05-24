@@ -43,6 +43,8 @@ The function must return one normalized action per charging port in `[-1, 1]`.
 - The rollout metric is the upstream EV2Gym `total_reward`
 - Final benchmark score is the mean baseline-normalized reward across the three cases
 - The official upstream heuristic `ChargeAsFastAsPossibleToDesiredCapacity` is normalized to score `100`
+- Cases with effectively zero delivered service receive score `0`, so no-op policies are not rewarded for near-zero cost.
+- Per-case normalized scores are capped to keep near-zero-cost edge cases from dominating the benchmark.
 
 ## Provided solutions
 
@@ -59,7 +61,6 @@ python benchmarks/PowerSystems/EV2GymSmartCharging/verification/evaluator.py \
 ```bash
 python -m frontier_eval task=unified \
   task.benchmark=PowerSystems/EV2GymSmartCharging \
-  task.runtime.use_conda_run=false \
+  task.runtime.env_name=frontier-eval-driver \
   algorithm.iterations=0
 ```
-

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import math
 import tempfile
 import time
 import traceback
@@ -19,6 +20,8 @@ BENCHMARK_DIR = Path(__file__).resolve().parents[1]
 REFERENCES_DIR = BENCHMARK_DIR / "references" / "upstream"
 CONFIG_TEMPLATE_PATH = REFERENCES_DIR / "V2GProfitPlusLoads.yaml"
 UPSTREAM_GITHUB_URL = "https://github.com/StavrosOrf/EV2Gym"
+MIN_SERVICE_SATISFACTION = 1e-3
+MAX_NORMALIZED_SCORE = 1000.0
 
 CASE_DEFINITIONS = [
     {
@@ -227,6 +230,19 @@ def _coerce_actions(candidate_output: Any, number_of_ports: int) -> np.ndarray:
     return np.clip(actions, -1.0, 1.0)
 
 
+def _score_case(total_reward: float, baseline_cost: float, energy_user_satisfaction: float) -> float:
+    if not math.isfinite(total_reward):
+        return 0.0
+    if not math.isfinite(energy_user_satisfaction) or energy_user_satisfaction <= MIN_SERVICE_SATISFACTION:
+        return 0.0
+    if baseline_cost <= 0.0:
+        raise ValueError("baseline_cost must be positive")
+
+    evaluation_cost = max(1.0, -total_reward)
+    normalized_score = 100.0 * baseline_cost / evaluation_cost
+    return min(MAX_NORMALIZED_SCORE, max(0.0, normalized_score))
+
+
 def _run_case(candidate_solve: Any, case_definition: dict[str, Any]) -> dict[str, Any]:
     _patch_upstream_resources()
 
@@ -257,8 +273,12 @@ def _run_case(candidate_solve: Any, case_definition: dict[str, Any]) -> dict[str
 
         stats = _jsonable(get_statistics(env))
         total_reward = float(stats["total_reward"])
-        evaluation_cost = max(1e-9, -total_reward)
-        normalized_score = 100.0 * float(case_definition["baseline_cost"]) / evaluation_cost
+        energy_user_satisfaction = float(stats.get("energy_user_satisfaction", 0.0))
+        normalized_score = _score_case(
+            total_reward=total_reward,
+            baseline_cost=float(case_definition["baseline_cost"]),
+            energy_user_satisfaction=energy_user_satisfaction,
+        )
 
         return {
             "case_id": str(case_definition["case_id"]),

@@ -159,9 +159,8 @@ python verification/evaluator.py baseline/solution.py
 python -m frontier_eval \
   task=unified \
   task.benchmark=AdditiveManufacturing/DiffSimThermalControl \
-  task.runtime.conda_env=<your_env> \
+  task.runtime.env_name=frontier-eval-driver \
   algorithm.iterations=0
 ```
 
-如果使用这次准备好的本地环境，请设为 `task.runtime.conda_env=Engi`。
-
+v1 driver 环境已经包含该任务所需的轻量依赖。

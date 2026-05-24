@@ -120,15 +120,15 @@ Unified mode from repository root:
 python -m frontier_eval \
   task=unified \
   task.benchmark=AdditiveManufacturing/DiffSimThermalControl \
-  task.runtime.conda_env=<your_env> \
+  task.runtime.env_name=frontier-eval-driver \
   algorithm.iterations=0
 ```
 
-If you follow the local setup used for validation here, replace `<your_env>` with `Engi`.
+The v1 driver environment includes this task's lightweight dependencies.
 
 ## Notes
 
 - `verification/evaluator.py` contains its own canonical scoring path.
+- The evaluator loads fixed cases, simulator logic, and baseline scoring from `verification/canonical.py`; candidate-reported `sim_calls` is ignored.
 - `baseline/result_log.txt` stores one reference run output.
 - This task now uses real upstream case files rather than the earlier surrogate-only case setup.
-

@@ -117,20 +117,112 @@ def list_bundles(manifest: dict[str, Any]) -> None:
             print(f"  tags: {tags}")
 
 
-def ensure_expected(dest: Path, expected_paths: list[str], expected_any: list[str]) -> bool:
+def glob_count(dest: Path, pattern: str) -> int:
+    return sum(1 for path in dest.glob(pattern) if path.is_file())
+
+
+def ensure_expected(
+    dest: Path,
+    expected_paths: list[str],
+    expected_any: list[str],
+    expected_glob_counts: dict[str, int] | None = None,
+    expected_min_sizes: dict[str, int] | None = None,
+    expected_any_min_size: int = 0,
+) -> bool:
     all_ok = all((dest / rel).exists() for rel in expected_paths)
-    any_ok = True if not expected_any else any((dest / rel).exists() for rel in expected_any)
-    return all_ok and any_ok
+    if not expected_any:
+        any_ok = True
+    elif expected_any_min_size > 0:
+        any_ok = any((dest / rel).is_file() and (dest / rel).stat().st_size >= expected_any_min_size for rel in expected_any)
+    else:
+        any_ok = any((dest / rel).exists() for rel in expected_any)
+    glob_ok = all(
+        glob_count(dest, pattern) >= int(min_count)
+        for pattern, min_count in (expected_glob_counts or {}).items()
+    )
+    size_ok = all(
+        (dest / rel).is_file() and (dest / rel).stat().st_size >= int(min_size)
+        for rel, min_size in (expected_min_sizes or {}).items()
+    )
+    return all_ok and any_ok and glob_ok and size_ok
 
 
-def normalize_single_child(dest: Path, expected_paths: list[str], expected_any: list[str]) -> None:
-    if ensure_expected(dest, expected_paths, expected_any):
+def describe_expected_failure(
+    dest: Path,
+    expected_paths: list[str],
+    expected_any: list[str],
+    expected_glob_counts: dict[str, int],
+    expected_min_sizes: dict[str, int],
+    expected_any_min_size: int = 0,
+) -> str:
+    messages: list[str] = []
+    missing = [rel for rel in expected_paths if not (dest / rel).exists()]
+    if missing:
+        messages.append("missing paths: " + ", ".join(missing))
+    if expected_any:
+        if expected_any_min_size > 0:
+            any_sized = any((dest / rel).is_file() and (dest / rel).stat().st_size >= expected_any_min_size for rel in expected_any)
+            if not any_sized:
+                messages.append(
+                    "none of expected_any exists with required size "
+                    f">= {expected_any_min_size} bytes: " + ", ".join(expected_any)
+                )
+        elif not any((dest / rel).exists() for rel in expected_any):
+            messages.append("none of expected_any exists: " + ", ".join(expected_any))
+    for pattern, min_count in expected_glob_counts.items():
+        count = glob_count(dest, pattern)
+        if count < int(min_count):
+            messages.append(f"glob {pattern!r}: found {count}, expected at least {int(min_count)}")
+    for rel, min_size in expected_min_sizes.items():
+        path = dest / rel
+        size = path.stat().st_size if path.is_file() else 0
+        if size < int(min_size):
+            messages.append(f"{rel}: {size} bytes, expected at least {int(min_size)}")
+    return "; ".join(messages) if messages else "expectations not satisfied"
+
+
+def ensure_expected_or_raise(
+    dest: Path,
+    expected_paths: list[str],
+    expected_any: list[str],
+    expected_glob_counts: dict[str, int],
+    expected_min_sizes: dict[str, int],
+    expected_any_min_size: int = 0,
+) -> None:
+    if not ensure_expected(
+        dest,
+        expected_paths,
+        expected_any,
+        expected_glob_counts,
+        expected_min_sizes,
+        expected_any_min_size,
+    ):
+        detail = describe_expected_failure(
+            dest,
+            expected_paths,
+            expected_any,
+            expected_glob_counts,
+            expected_min_sizes,
+            expected_any_min_size,
+        )
+        raise RuntimeError(f"Downloaded folder does not contain the expected files: {dest} ({detail})")
+
+
+def normalize_single_child(
+    dest: Path,
+    expected_paths: list[str],
+    expected_any: list[str],
+    expected_glob_counts: dict[str, int] | None = None,
+    expected_min_sizes: dict[str, int] | None = None,
+    expected_any_min_size: int = 0,
+) -> None:
+    if ensure_expected(dest, expected_paths, expected_any, expected_glob_counts, expected_min_sizes, expected_any_min_size):
         return
     children = [path for path in dest.iterdir()]
     if len(children) != 1 or not children[0].is_dir():
         return
     child = children[0]
-    if not ensure_expected(child, expected_paths, expected_any):
+    if not ensure_expected(child, expected_paths, expected_any, expected_glob_counts, expected_min_sizes, expected_any_min_size):
         return
     for item in child.iterdir():
         target = dest / item.name
@@ -344,8 +436,18 @@ def handle_gdrive_folder(step: dict[str, Any], *, dry_run: bool) -> None:
     dest = resolve_relpath(str(step["dest"]))
     expected_paths = [str(item) for item in step.get("expected_paths", [])]
     expected_any = [str(item) for item in step.get("expected_any", [])]
+    expected_glob_counts = {str(key): int(value) for key, value in step.get("expected_glob_counts", {}).items()}
+    expected_min_sizes = {str(key): int(value) for key, value in step.get("expected_min_sizes", {}).items()}
+    expected_any_min_size = int(step.get("expected_any_min_size", 0) or 0)
 
-    if dest.exists() and ensure_expected(dest, expected_paths, expected_any):
+    if dest.exists() and ensure_expected(
+        dest,
+        expected_paths,
+        expected_any,
+        expected_glob_counts,
+        expected_min_sizes,
+        expected_any_min_size,
+    ):
         print(f"[skip] Download already present: {dest}")
         return
 
@@ -360,9 +462,22 @@ def handle_gdrive_folder(step: dict[str, Any], *, dry_run: bool) -> None:
         print(f"[warn] gdown folder download failed, falling back to direct public downloads: {exc}")
         download_public_gdrive_folder(url, dest, dry_run=dry_run)
     if not dry_run:
-        normalize_single_child(dest, expected_paths, expected_any)
-        if not ensure_expected(dest, expected_paths, expected_any):
-            raise RuntimeError(f"Downloaded folder does not contain the expected files: {dest}")
+        normalize_single_child(
+            dest,
+            expected_paths,
+            expected_any,
+            expected_glob_counts,
+            expected_min_sizes,
+            expected_any_min_size,
+        )
+        ensure_expected_or_raise(
+            dest,
+            expected_paths,
+            expected_any,
+            expected_glob_counts,
+            expected_min_sizes,
+            expected_any_min_size,
+        )
 
 
 def handle_http_file(step: dict[str, Any], *, dry_run: bool) -> None:

@@ -21,7 +21,11 @@
           "expected_paths": [
             "pressure_files",
             "velocity_files"
-          ]
+          ],
+          "expected_glob_counts": {
+            "pressure_files/case_*_p_car_patch.raw": 101,
+            "velocity_files/case_*_initialConditions": 101
+          }
         },
         {
           "type": "gdrive_folder",
@@ -30,7 +34,8 @@
           "expected_any": [
             "physense_transolver_car_base.pth",
             "physense_transolver_car_best_base.pth"
-          ]
+          ],
+          "expected_any_min_size": 1048576
         },
         {
           "type": "command",

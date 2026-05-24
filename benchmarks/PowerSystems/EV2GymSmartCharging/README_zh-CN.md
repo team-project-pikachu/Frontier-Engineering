@@ -43,6 +43,8 @@ solve(case, max_sim_calls=0, simulate_fn=None)
 - 单次 rollout 指标使用上游 EV2Gym 的 `total_reward`
 - 最终分数为三个固定 case 的基线归一化平均分
 - 官方上游启发式 `ChargeAsFastAsPossibleToDesiredCapacity` 被归一化为 `100`
+- 几乎没有提供充电服务的 case 记为 `0` 分，因此 no-op 策略不会因为近零成本而得到奖励。
+- 单个 case 的归一化分数带上限，避免近零成本边界情况支配整体 benchmark。
 
 ## 附带方案
 
@@ -59,7 +61,6 @@ python benchmarks/PowerSystems/EV2GymSmartCharging/verification/evaluator.py \
 ```bash
 python -m frontier_eval task=unified \
   task.benchmark=PowerSystems/EV2GymSmartCharging \
-  task.runtime.use_conda_run=false \
+  task.runtime.env_name=frontier-eval-driver \
   algorithm.iterations=0
 ```
-

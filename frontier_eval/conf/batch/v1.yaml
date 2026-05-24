@@ -187,14 +187,22 @@ tasks:
   label: StructuralOptimization/ISCSO2015
   overrides:
   - task.benchmark=StructuralOptimization/ISCSO2015
+  - task.runtime.env_name=frontier-v1-main
 - name: unified
   label: StructuralOptimization/ISCSO2023
   overrides:
   - task.benchmark=StructuralOptimization/ISCSO2023
+  - task.runtime.env_name=frontier-v1-main
 - name: unified
   label: StructuralOptimization/TopologyOptimization
   overrides:
   - task.benchmark=StructuralOptimization/TopologyOptimization
+  - task.runtime.env_name=frontier-v1-main
+- name: unified
+  label: StructuralOptimization/PyMOTOSIMPCompliance
+  overrides:
+  - task.benchmark=StructuralOptimization/PyMOTOSIMPCompliance
+  - task.runtime.env_name=frontier-v1-main
 - name: unified
   label: Robotics/DynamicObstacleAvoidanceNavigation
   overrides:

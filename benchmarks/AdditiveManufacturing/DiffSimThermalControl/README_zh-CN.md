@@ -120,14 +120,14 @@ python verification/evaluator.py scripts/init.py \
 python -m frontier_eval \
   task=unified \
   task.benchmark=AdditiveManufacturing/DiffSimThermalControl \
-  task.runtime.conda_env=<your_env> \
+  task.runtime.env_name=frontier-eval-driver \
   algorithm.iterations=0
 ```
 
-如果沿用这次本地验证使用的环境，把 `<your_env>` 替换成 `Engi`。
+v1 driver 环境已经包含该任务所需的轻量依赖。
 
 ## 备注
 
 - `verification/evaluator.py` 内部包含 canonical 评分路径。
+- evaluator 会从 `verification/canonical.py` 加载固定 case、仿真逻辑和 baseline 评分路径；candidate 自报的 `sim_calls` 不参与计分。
 - `baseline/result_log.txt` 保存了一次参考运行结果。
-

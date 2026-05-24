@@ -1,4 +1,5 @@
 ev2gym
+setuptools<81
 numpy
 pandas
 PyYAML

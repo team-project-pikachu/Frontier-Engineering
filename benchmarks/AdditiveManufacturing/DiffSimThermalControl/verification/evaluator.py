@@ -5,7 +5,11 @@ import importlib.util
 import json
 import math
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+
+BENCHMARK_DIR = Path(__file__).resolve().parents[1]
+CANONICAL_PROGRAM = Path(__file__).resolve().parent / 'canonical.py'
 
 
 def _load_module(candidate_path: Path):
@@ -17,31 +21,64 @@ def _load_module(candidate_path: Path):
     return module
 
 
-def _canonical_baseline(case: dict[str, Any], module: Any, max_sim_calls: int) -> dict[str, Any]:
-    return module.baseline_solve(case, max_sim_calls=max_sim_calls, simulate_fn=module.simulate)
+def _canonical_baseline(case: dict[str, Any], canonical_module: Any, max_sim_calls: int) -> dict[str, Any]:
+    return canonical_module.baseline_solve(case, max_sim_calls=max_sim_calls, simulate_fn=canonical_module.simulate)
+
+
+def _counted_simulator(simulate_fn: Callable[[list[float], dict[str, Any]], dict[str, Any]]):
+    count = 0
+
+    def simulate(params: list[float], case: dict[str, Any]) -> dict[str, Any]:
+        nonlocal count
+        count += 1
+        return simulate_fn(params, case)
+
+    def calls() -> int:
+        return count
+
+    return simulate, calls
+
+
+def _coerce_params(candidate_result: Any, case: dict[str, Any]) -> list[float]:
+    if not isinstance(candidate_result, dict):
+        raise ValueError('candidate solve() must return a dictionary')
+    if 'params' not in candidate_result:
+        raise ValueError("candidate result must contain key 'params'")
+    params = [float(value) for value in candidate_result['params']]
+    expected = int(case['control_knots'])
+    if len(params) != expected:
+        raise ValueError(f'expected {expected} params, got {len(params)}')
+    if not all(math.isfinite(value) for value in params):
+        raise ValueError('all candidate params must be finite')
+    return params
 
 
 def evaluate_candidate(candidate_path: Path, max_sim_calls: int = 24) -> dict[str, Any]:
-    module = _load_module(candidate_path)
-    if not hasattr(module, 'load_cases') or not hasattr(module, 'simulate') or not hasattr(module, 'solve'):
-        raise AttributeError('candidate must define load_cases(), simulate(), and solve()')
+    canonical_module = _load_module(CANONICAL_PROGRAM)
+    candidate_module = _load_module(candidate_path)
+    if not hasattr(candidate_module, 'solve'):
+        raise AttributeError('candidate must define solve(case, max_sim_calls=..., simulate_fn=...)')
 
-    cases = module.load_cases()
+    cases = canonical_module.load_cases()
     per_case = []
     valid = True
     for case in cases:
-        baseline_result = _canonical_baseline(case, module, max_sim_calls)
-        baseline_metrics = module.simulate(baseline_result['params'], case)
-        candidate_result = module.solve(case, max_sim_calls=max_sim_calls, simulate_fn=module.simulate)
-        candidate_metrics = module.simulate(candidate_result['params'], case)
+        baseline_result = _canonical_baseline(case, canonical_module, max_sim_calls)
+        baseline_metrics = canonical_module.simulate(baseline_result['params'], case)
 
-        case_valid = bool(candidate_metrics['feasible']) and int(candidate_result['sim_calls']) <= int(max_sim_calls)
+        counted_simulate, actual_calls = _counted_simulator(canonical_module.simulate)
+        candidate_result = candidate_module.solve(case, max_sim_calls=max_sim_calls, simulate_fn=counted_simulate)
+        params = _coerce_params(candidate_result, case)
+        candidate_metrics = canonical_module.simulate(params, case)
+        candidate_sim_calls = actual_calls()
+
+        case_valid = bool(candidate_metrics['feasible']) and candidate_sim_calls <= int(max_sim_calls)
         valid = valid and case_valid
         baseline_loss = float(baseline_metrics['loss'])
         candidate_loss = float(candidate_metrics['loss'])
         improvement_ratio = (baseline_loss - candidate_loss) / max(abs(baseline_loss), 1e-9)
         quality = math.exp(-candidate_loss / 200.0)
-        call_penalty = 0.002 * float(candidate_result['sim_calls']) / float(max_sim_calls)
+        call_penalty = 0.002 * float(candidate_sim_calls) / float(max_sim_calls)
         score = max(0.0, quality + 0.3 * improvement_ratio - call_penalty)
         per_case.append(
             {
@@ -49,7 +86,7 @@ def evaluate_candidate(candidate_path: Path, max_sim_calls: int = 24) -> dict[st
                 'baseline_loss': baseline_loss,
                 'candidate_loss': candidate_loss,
                 'improvement_ratio': improvement_ratio,
-                'candidate_sim_calls': float(candidate_result['sim_calls']),
+                'candidate_sim_calls': float(candidate_sim_calls),
                 'baseline_sim_calls': float(baseline_result['sim_calls']),
                 'score': score if case_valid else 0.0,
                 'valid': 1.0 if case_valid else 0.0,
