@@ -10,6 +10,7 @@ from hydra.utils import get_original_cwd
 from omegaconf import DictConfig, OmegaConf
 
 from frontier_eval.env import find_dotenv, load_dotenv
+from frontier_eval.monitoring import maybe_configure_datarobot_otel
 from frontier_eval.registry import get_algorithm, get_task
 
 
@@ -108,6 +109,7 @@ def _hydra_main(cfg: DictConfig) -> None:
 
 def main() -> None:
     _load_dotenv()
+    maybe_configure_datarobot_otel()
     _hydra_main()
 
 

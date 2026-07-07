@@ -350,6 +350,18 @@ class OpenEvolveAlgorithm(Algorithm):
         if not best:
             raise RuntimeError("OpenEvolve returned no best program")
 
+        from frontier_eval.monitoring import normalize_evaluation_metrics, record_optimization_run
+
+        best_metrics = normalize_evaluation_metrics(best)
+        best_score = best_metrics.get("combined_score")
+        record_optimization_run(
+            task_name=task.NAME,
+            algorithm=self.NAME,
+            iterations=iterations,
+            best_score=best_score,
+            model=model,
+        )
+
         if save_db or export_history:
             # OpenEvolve's initial program evaluation stores artifacts in a pending queue, but does
             # not attach them to the initial Program. Persist them here for complete history.

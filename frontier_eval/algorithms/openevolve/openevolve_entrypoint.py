@@ -61,7 +61,19 @@ def evaluate(program_path: str) -> Any:
 
     from frontier_eval.registry_tasks import get_task
 
+    from frontier_eval.monitoring import maybe_configure_datarobot_otel, record_candidate_evaluation
+
+    maybe_configure_datarobot_otel()
+
     task_cls = get_task(task_name)
     cfg = OmegaConf.create({"task": _task_cfg_from_env(task_name)})
     task = task_cls(cfg=cfg, repo_root=repo_root)
-    return task.evaluate_program(Path(program_path).expanduser().resolve())
+    resolved_program = Path(program_path).expanduser().resolve()
+    result = task.evaluate_program(resolved_program)
+    record_candidate_evaluation(
+        task_name=task_name,
+        program_path=str(resolved_program),
+        result=result,
+        algorithm="openevolve",
+    )
+    return result

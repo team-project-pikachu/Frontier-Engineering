@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+
+WORKDIR /repo
+
+COPY scripts/ops/requirements-task-acceptance-gate.txt /tmp/requirements-task-acceptance-gate.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-task-acceptance-gate.txt
+
+ENTRYPOINT ["python", "scripts/ops/task_acceptance_gate.py"]
